@@ -50,7 +50,7 @@ async def download_csv(page, url, label):
 def parse_csv(filepath, label):
     """Parse a downloaded CSV file into a list of dicts."""
     records = []
-    with open(filepath, "r", encoding="latin-1") as f:
+    with open(filepath, "r", encoding="utf-8-sig") as f:
         # ACR CSVs sometimes have a header row with the report date, then the actual headers
         lines = f.readlines()
     
@@ -84,6 +84,23 @@ def parse_csv(filepath, label):
     return records, headers
 
 
+def normalize_date(s):
+    """Convert any date string to YYYY-MM-DD format."""
+    if not s:
+        return ""
+    s = s.strip()
+    # Try parsing various formats
+    from datetime import datetime as dt
+    for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%m/%d/%Y %I:%M:%S %p", "%m/%d/%Y %H:%M:%S", "%m/%d/%Y", "%d/%m/%Y"]:
+        try:
+            d = dt.strptime(s[:min(len(s), 22)].strip(), fmt)
+            return d.strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    # Fallback: just return first 10 chars
+    return s[:10]
+
+
 def process_credit_status(records):
     """Process Credit Status records into compact JSON format."""
     processed = []
@@ -98,7 +115,7 @@ def process_credit_status(records):
             processed.append({
                 "sn": serial,
                 "q": qty,
-                "d": r.get("Date Issued (GMT)", r.get("Date Issued", "")).strip()[:10],
+                "d": normalize_date(r.get("Date Issued (GMT)", r.get("Date Issued", ""))),
                 "v": int(float(r.get("Vintage", 0) or 0)),
                 "dev": (r.get("Project\xa0Developer", r.get("Project Developer", "")) or "")[:60],
                 "s": (r.get("Status", "") or "").strip(),
@@ -133,8 +150,8 @@ def process_retired_credits(records):
             processed.append({
                 "sn": serial,
                 "q": qty,
-                "d": (r.get("Status Effective (GMT)", r.get("Status Effective", "")) or "").strip()[:10],
-                "di": (r.get("Date Issued (GMT)", r.get("Date Issued", "")) or "").strip()[:10],
+                "d": normalize_date(r.get("Status Effective (GMT)", r.get("Status Effective", ""))),
+                "di": normalize_date(r.get("Date Issued (GMT)", r.get("Date Issued", ""))),
                 "v": int(float(r.get("Vintage", 0) or 0)),
                 "b": (r.get("Retired on Behalf of", r.get("Retired on Behalf Of", "")) or "").strip()[:80],
                 "p": (r.get("Purpose of Retirement", "") or "").strip()[:200],
