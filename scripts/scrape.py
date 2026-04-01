@@ -50,7 +50,7 @@ async def download_csv(page, url, label):
 def parse_csv(filepath, label):
     """Parse a downloaded CSV file into a list of dicts."""
     records = []
-    with open(filepath, "r", encoding="latin-1") as f:
+    with open(filepath, "r", encoding="utf-8-sig") as f:
         # ACR CSVs sometimes have a header row with the report date, then the actual headers
         lines = f.readlines()
     
