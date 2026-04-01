@@ -54,6 +54,9 @@ def parse_csv(filepath, label):
         # ACR CSVs sometimes have a header row with the report date, then the actual headers
         lines = f.readlines()
     
+    # Normalize non-breaking spaces in all lines (ACR CSVs use \xa0 in headers)
+    lines = [line.replace('\xa0', ' ') for line in lines]
+    
     # Find the header row (the one with 'Credit Serial Numbers' or similar)
     header_idx = 0
     for i, line in enumerate(lines):
@@ -88,46 +91,77 @@ def normalize_date(s):
     """Convert any date string to YYYY-MM-DD format."""
     if not s:
         return ""
-    s = s.strip()
-    # Try parsing various formats
-    from datetime import datetime as dt
-    for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%m/%d/%Y %I:%M:%S %p", "%m/%d/%Y %H:%M:%S", "%m/%d/%Y", "%d/%m/%Y"]:
-        try:
-            d = dt.strptime(s[:min(len(s), 22)].strip(), fmt)
-            return d.strftime("%Y-%m-%d")
-        except ValueError:
-            continue
-    # Fallback: just return first 10 chars
+    s = str(s).strip()
+    if not s:
+        return ""
+    
+    # Already ISO format?
+    if len(s) >= 10 and s[4] == "-" and s[7] == "-":
+        return s[:10]
+    
+    # Try to parse with dateutil for maximum flexibility
+    try:
+        from dateutil import parser as dateparser
+        d = dateparser.parse(s)
+        return d.strftime("%Y-%m-%d")
+    except Exception:
+        pass
+    
+    # Manual parsing for common formats
+    # Remove time portion - split on space and take date part
+    date_part = s.split(" ")[0] if " " in s else s
+    
+    # MM/DD/YYYY or M/D/YYYY
+    if "/" in date_part:
+        parts = date_part.split("/")
+        if len(parts) == 3:
+            try:
+                m, d, y = int(parts[0]), int(parts[1]), int(parts[2])
+                if y < 100:
+                    y += 2000
+                return f"{y:04d}-{m:02d}-{d:02d}"
+            except ValueError:
+                pass
+    
     return s[:10]
-
 
 def process_credit_status(records):
     """Process Credit Status records into compact JSON format."""
+    def g(r, *names):
+        """Fuzzy get - find key containing any of the given substrings."""
+        for name in names:
+            # Exact match first
+            if name in r:
+                return (r[name] or "")
+            # Fuzzy match - normalize both sides
+            name_norm = name.replace('\xa0', ' ').lower().strip()
+            for k in r.keys():
+                k_norm = k.replace('\xa0', ' ').lower().strip()
+                if name_norm in k_norm or k_norm in name_norm:
+                    return (r[k] or "")
+        return ""
+    
     processed = []
     for r in records:
         try:
-            qty_key = next((k for k in r.keys() if "Quantity" in k and "Credit" in k), None)
-            qty = int(float(r.get(qty_key, 0) or 0)) if qty_key else 0
-            
-            serial_key = next((k for k in r.keys() if "Serial" in k), None)
-            serial = (r.get(serial_key, "") or "").strip() if serial_key else ""
+            qty = int(float(g(r, "Quantity of Credits", "Quantity") or 0))
             
             processed.append({
-                "sn": serial,
+                "sn": g(r, "Credit Serial Numbers", "Serial").strip(),
                 "q": qty,
-                "d": normalize_date(r.get("Date Issued (GMT)", r.get("Date Issued", ""))),
-                "v": int(float(r.get("Vintage", 0) or 0)),
-                "dev": (r.get("Project\xa0Developer", r.get("Project Developer", "")) or "")[:60],
-                "s": (r.get("Status", "") or "").strip(),
-                "pid": (r.get("Project ID", "") or "").strip(),
-                "pn": (r.get("Project Name", r.get(" Project Name ", "")) or "").strip()[:80],
-                "pt": (r.get("Project Type", "") or "").strip(),
-                "m": (r.get("Project Methodology/Protocol", "") or "").strip()[:80],
-                "mv": (r.get("Methodology/Protocol Version", "") or "").strip(),
-                "st": (r.get("Project Site State", "") or "").strip(),
-                "co": (r.get("Project Site Country", "") or "").strip(),
-                "vr": (r.get("Verified Removal", "") or "").strip(),
-                "ccp": (r.get("CCP Approved", "") or "").strip(),
+                "d": normalize_date(g(r, "Date Issued (GMT)", "Date Issued")),
+                "v": int(float(g(r, "Vintage") or 0)),
+                "dev": g(r, "Project Developer").strip()[:60],
+                "s": g(r, "Status").strip(),
+                "pid": g(r, "Project ID").strip(),
+                "pn": g(r, "Project Name").strip()[:80],
+                "pt": g(r, "Project Type").strip(),
+                "m": g(r, "Project Methodology/Protocol", "Methodology/Protocol").strip()[:80],
+                "mv": g(r, "Methodology/Protocol Version", "Protocol Version").strip(),
+                "st": g(r, "Project Site State").strip(),
+                "co": g(r, "Project Site Country").strip(),
+                "vr": g(r, "Verified Removal").strip(),
+                "ccp": g(r, "CCP Approved").strip(),
             })
         except Exception as e:
             print(f"  Warning: skipping row due to error: {e}")
@@ -138,31 +172,39 @@ def process_credit_status(records):
 
 def process_retired_credits(records):
     """Process Retired Credits records into compact JSON format."""
+    def g(r, *names):
+        """Fuzzy get - find key containing any of the given substrings."""
+        for name in names:
+            if name in r:
+                return (r[name] or "")
+            name_norm = name.replace('\xa0', ' ').lower().strip()
+            for k in r.keys():
+                k_norm = k.replace('\xa0', ' ').lower().strip()
+                if name_norm in k_norm or k_norm in name_norm:
+                    return (r[k] or "")
+        return ""
+    
     processed = []
     for r in records:
         try:
-            qty_key = next((k for k in r.keys() if "Quantity" in k), None)
-            qty = int(float(r.get(qty_key, 0) or 0)) if qty_key else 0
-            
-            serial_key = next((k for k in r.keys() if "Serial" in k), None)
-            serial = (r.get(serial_key, "") or "").strip() if serial_key else ""
+            qty = int(float(g(r, "Quantity of Credits", "Quantity") or 0))
             
             processed.append({
-                "sn": serial,
+                "sn": g(r, "Credit Serial Numbers", "Serial").strip(),
                 "q": qty,
-                "d": normalize_date(r.get("Status Effective (GMT)", r.get("Status Effective", ""))),
-                "di": normalize_date(r.get("Date Issued (GMT)", r.get("Date Issued", ""))),
-                "v": int(float(r.get("Vintage", 0) or 0)),
-                "b": (r.get("Retired on Behalf of", r.get("Retired on Behalf Of", "")) or "").strip()[:80],
-                "p": (r.get("Purpose of Retirement", "") or "").strip()[:200],
-                "pid": (r.get("Project ID", "") or "").strip(),
-                "pn": (r.get("Project Name", "") or "").strip()[:80],
-                "pt": (r.get("Project Type", "") or "").strip(),
-                "m": (r.get("Project Methodology/Protocol", "") or "").strip()[:80],
-                "mv": (r.get("Methodology/Protocol Version", "") or "").strip(),
-                "st": (r.get("Project Site State", "") or "").strip(),
-                "vr": (r.get("Verified Removal", "") or "").strip(),
-                "ccp": (r.get("CCP Approved", "") or "").strip(),
+                "d": normalize_date(g(r, "Status Effective (GMT)", "Status Effective")),
+                "di": normalize_date(g(r, "Date Issued (GMT)", "Date Issued")),
+                "v": int(float(g(r, "Vintage") or 0)),
+                "b": g(r, "Retired on Behalf of", "Retired on Behalf Of").strip()[:80],
+                "p": g(r, "Purpose of Retirement").strip()[:200],
+                "pid": g(r, "Project ID").strip(),
+                "pn": g(r, "Project Name").strip()[:80],
+                "pt": g(r, "Project Type").strip(),
+                "m": g(r, "Project Methodology/Protocol", "Methodology/Protocol").strip()[:80],
+                "mv": g(r, "Methodology/Protocol Version", "Protocol Version").strip(),
+                "st": g(r, "Project Site State").strip(),
+                "vr": g(r, "Verified Removal").strip(),
+                "ccp": g(r, "CCP Approved").strip(),
             })
         except Exception as e:
             print(f"  Warning: skipping row due to error: {e}")
