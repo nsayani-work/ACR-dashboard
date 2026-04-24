@@ -1,0 +1,146 @@
+OAK HILL ADVISORS
+ACR Weekly Digest
+Carbon credit registry activity — IFM & Non-IFM
+REPORTING WEEK
+{{ week_start }} – {{ week_end }}
+Scope: New records appearing in the registry between the prior-Friday and current-Friday snapshots. Issuance = Active or Retired status only. Retirements = all entries in the retired ledger.  •  Event-detail tables list transactions ≥ {{ ifm_threshold|thousands }} (IFM) or ≥ {{ nonifm_threshold|thousands }} (Non-IFM). Summary tables include all sizes.
+— THIS WEEK'S ACTIVITY ({{ WEEK_START }} – {{ WEEK_END }}) —
+IFM ISSUED THIS WK
+{{ ifm_issued_total_wk|thousands }}
+{{ ifm_issue_event_count }} event{% if ifm_issue_event_count != 1 %}s{% endif %}
+IFM RETIRED THIS WK
+{{ ifm_retired_total_wk|thousands }}
+{{ ifm_retire_event_count }} event{% if ifm_retire_event_count != 1 %}s{% endif %}
+NON-IFM ISSUED THIS WK
+{{ nonifm_issued_total_wk|thousands }}
+{{ nonifm_issue_event_count }} event{% if nonifm_issue_event_count != 1 %}s{% endif %}
+NON-IFM RETIRED THIS WK
+{{ nonifm_retired_total_wk|thousands }}
+{{ nonifm_retire_event_count }} event{% if nonifm_retire_event_count != 1 %}s{% endif %}
+This week at a glance
+{{ narrative }}
+ACR IFM ACTIVITY
+{%- for cat, wk, ytd, ly in ifm_rows_issued %} {%- endfor %} {%- for cat, wk, ytd, ly in ifm_rows_retired %} {%- endfor %}
+Category
+This Wk
+YTD {{ year_current }}
+FY {{ year_prior }}
+Issued — {{ cat }}
+{{ wk|thousands }}
+{{ ytd|thousands }}
+{{ ly|thousands }}
+Total IFM Issued
+{{ ifm_issued_totals[0]|thousands }}
+{{ ifm_issued_totals[1]|thousands }}
+{{ ifm_issued_totals[2]|thousands }}
+Retired — {{ cat }}
+{{ wk|thousands }}
+{{ ytd|thousands }}
+{{ ly|thousands }}
+Total IFM Retired
+{{ ifm_retired_totals[0]|thousands }}
+{{ ifm_retired_totals[1]|thousands }}
+{{ ifm_retired_totals[2]|thousands }}
+IFM Static — Cum. Issued vs. Retired (YTD)
+￼
+IFM Dynamic — Cum. Issued vs. Retired (YTD)
+￼
+Top IFM Issuers — This Week
+{%- for name, q in top_ifm_issuers %} {%- endfor %}
+Developer
+Credits
+{{ name }}
+{{ q|thousands }}
+Top IFM Retirement Accounts — This Week
+{%- for name, q in top_ifm_retirees %} {%- endfor %}
+On Behalf Of
+Credits
+{{ name }}
+{{ q|thousands }}
+IFM Events ≥ {{ ifm_threshold|thousands }} This Week
+{%- if ifm_issue_events or ifm_retire_events %} {%- for e in ifm_issue_events %} {%- endfor %} {%- for e in ifm_retire_events %} {%- endfor %}
+Date
+Type
+Project
+Developer / Account
+Credits
+{{ e.d }}
+ISSUED
+{{ e.pid }} — {{ e.pn|default('', true) }}
+{{ e.dev|default('—', true) }}
+{{ e.q|thousands }}
+{{ e.d }}
+RETIRED
+{{ e.pid }} — {{ e.pn|default('', true) }}
+{{ e.b|default('—', true) }}
+{{ e.q|thousands }}
+{%- else %}
+No IFM events ≥ {{ ifm_threshold|thousands }} this week.
+{%- endif %}
+ACR NON-IFM ACTIVITY
+{%- for meth, wk, ytd, ly in nonifm_issued_rows %} {%- endfor %} {%- for meth, wk, ytd, ly in nonifm_retired_rows %} {%- endfor %}
+Methodology
+This Wk
+YTD {{ year_current }}
+FY {{ year_prior }}
+ISSUANCE
+{{ meth }}
+{{ wk|thousands }}
+{{ ytd|thousands }}
+{{ ly|thousands }}
+Total Non-IFM Issued
+{{ nonifm_issued_totals[0]|thousands }}
+{{ nonifm_issued_totals[1]|thousands }}
+{{ nonifm_issued_totals[2]|thousands }}
+RETIREMENTS
+{{ meth }}
+{{ wk|thousands }}
+{{ ytd|thousands }}
+{{ ly|thousands }}
+Total Non-IFM Retired
+{{ nonifm_retired_totals[0]|thousands }}
+{{ nonifm_retired_totals[1]|thousands }}
+{{ nonifm_retired_totals[2]|thousands }}
+Non-IFM Issuance by Methodology — This Wk
+￼
+Non-IFM Retirements by Methodology — This Wk
+￼
+Top Non-IFM Issuers — This Week
+{%- for name, q in top_nonifm_issuers %} {%- endfor %}
+Developer
+Credits
+{{ name }}
+{{ q|thousands }}
+Top Non-IFM Retirement Accounts — This Week
+{%- for name, q in top_nonifm_retirees %} {%- endfor %}
+On Behalf Of
+Credits
+{{ name }}
+{{ q|thousands }}
+Non-IFM Events ≥ {{ nonifm_threshold|thousands }} This Week
+{%- if nonifm_issue_events or nonifm_retire_events %} {%- for e in nonifm_issue_events %} {%- endfor %} {%- for e in nonifm_retire_events %} {%- endfor %}
+Date
+Type
+Methodology
+Project
+Developer / Account
+Credits
+{{ e.d }}
+ISSUED
+{{ e._methodology }}
+{{ e.pid }} — {{ e.pn|default('', true) }}
+{{ e.dev|default('—', true) }}
+{{ e.q|thousands }}
+{{ e.d }}
+RETIRED
+{{ e._methodology }}
+{{ e.pid }} — {{ e.pn|default('', true) }}
+{{ e.b|default('—', true) }}
+{{ e.q|thousands }}
+{%- else %}
+No Non-IFM events ≥ {{ nonifm_threshold|thousands }} this week.
+{%- endif %}
+View Full Dashboard →
+Oak Hill Advisors — ACR IFM Registry Monitoring
+Data sourced from ACR registry; weekly digest covers records newly appearing between prior-Friday and current-Friday snapshots.
+Issuance: Active or Retired status only. Retirements: all. Thresholds apply to "Events ≥" tables only (IFM ≥ {{ ifm_threshold|thousands }}  •  Non-IFM ≥ {{ nonifm_threshold|thousands }}).
