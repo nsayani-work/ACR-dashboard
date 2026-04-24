@@ -1,0 +1,65 @@
+name: Scrape ACR Registry Data
+
+on:
+  schedule:
+    # Daily at 9:00 UTC = 5:00 AM EDT / 4:00 AM EST
+    - cron: '0 9 * * *'
+  workflow_dispatch:  # allow manual runs
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # needed to push commits back to the repo
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install playwright python-dateutil
+          playwright install chromium
+
+      - name: Run scraper
+        run: python scripts/scrape.py
+
+      # ====================================================================
+      # NEW: Snapshot archiver
+      # After scrape.py produces data/acr_data.json, save a dated copy to
+      # data/snapshots/ so the weekly email job can diff across Fridays.
+      # ====================================================================
+      - name: Archive daily snapshot
+        run: |
+          mkdir -p data/snapshots
+          TODAY=$(date -u +%Y-%m-%d)
+          cp data/acr_data.json "data/snapshots/${TODAY}.json"
+          echo "Archived snapshot: data/snapshots/${TODAY}.json"
+          ls -lh data/snapshots/ | tail -10
+
+      - name: Prune snapshots older than 90 days
+        run: |
+          # Keep 90 days of history; Git history preserves older versions if ever needed
+          find data/snapshots -name '*.json' -mtime +90 -delete
+          echo "Snapshot count after prune:"
+          ls data/snapshots | wc -l
+      # ====================================================================
+      # END NEW
+      # ====================================================================
+
+      - name: Commit and push if data changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/acr_data.json data/meta.json data/snapshots/
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update ACR data $(date -u +%Y-%m-%d)"
+            git push
+          fi
