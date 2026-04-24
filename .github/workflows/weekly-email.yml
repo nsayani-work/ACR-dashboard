@@ -1,0 +1,42 @@
+name: Weekly ACR Digest Email
+
+on:
+  schedule:
+    # Fridays at 10:00 UTC = 6:00 AM EDT / 5:00 AM EST
+    # Timed to run AFTER the daily scrape (which runs at 9:00 UTC)
+    - cron: '0 10 * * 5'
+  workflow_dispatch:  # allow manual runs for testing
+
+jobs:
+  send-digest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install matplotlib pillow jinja2 requests
+
+      - name: Build email HTML
+        run: python scripts/build_email.py
+
+      - name: Send email via SendGrid
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
+        run: python scripts/send_email.py
+
+      - name: Upload email as artifact (backup copy)
+        if: always()  # upload even if send failed, so we have a record
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-digest-${{ github.run_id }}
+          path: build/email_*.html
+          retention-days: 30
